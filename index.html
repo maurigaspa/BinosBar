@@ -157,6 +157,8 @@
     align-items:flex-end; justify-content:center; z-index:30;
   }
   .modal-fundo.aberto{display:flex;}
+  #modalCadastroCliente{ z-index:33; }
+  #modalExtratoCompleto{ z-index:33; }
   .modal{
     background:var(--bg); width:100%; max-width:520px; border-radius:16px 16px 0 0;
     padding:22px; max-height:88vh; overflow-y:auto; position:relative;
@@ -225,6 +227,11 @@
     </div>
   </header>
 
+  <div id="avisoSync" style="display:none; background:var(--amber-bg); color:var(--amber); padding:10px 16px; font-size:13px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+    <span id="avisoSyncTexto">Não foi possível sincronizar com a planilha agora.</span>
+    <button id="btnRetentarSync" class="btn btn-sm" style="background:var(--amber); color:#fff; flex-shrink:0;">Tentar de novo</button>
+  </div>
+
   <main>
 
     <!-- INÍCIO -->
@@ -240,7 +247,8 @@
     <!-- CLIENTES -->
     <section class="tela" id="telaClientes">
       <div class="cartao" style="margin-bottom:14px;">
-        <input type="text" id="buscaClienteTela" placeholder="Buscar cliente...">
+        <div class="campo" style="margin-bottom:10px;"><input type="text" id="buscaClienteTela" placeholder="Buscar cliente..."></div>
+        <button class="btn btn-gold btn-block" id="btnNovoClienteTela">+ Cadastrar novo cliente</button>
       </div>
       <div id="listaClientesTela"></div>
     </section>
@@ -438,7 +446,40 @@
       <textarea id="extratoPreview" readonly style="min-height:160px;"></textarea>
     </div>
     <button class="btn btn-green btn-block" id="btnEnviarExtrato">Enviar por WhatsApp</button>
+    <button class="btn btn-outline btn-block" id="btnAbrirExtratoCompleto" style="margin-top:8px;">Quero mais opções (extrato completo)</button>
     <button class="btn btn-secundario" id="btnFecharExtrato">Fechar</button>
+  </div>
+</div>
+
+<!-- MODAL: EXTRATO COMPLETO -->
+<div class="modal-fundo" id="modalExtratoCompleto">
+  <div class="modal">
+    <h2>Extrato completo</h2>
+    <div class="campo">
+      <label>O que incluir</label>
+      <select id="ecConteudo">
+        <option value="aberto">Somente vendas em aberto</option>
+        <option value="tudo">Tudo (vendas e pagamentos, incluindo já pagas)</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Formato</label>
+      <select id="ecFormato">
+        <option value="detalhado">Detalhado (lista cada compra/pagamento)</option>
+        <option value="resumido">Resumido (só os totais)</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Período (dias pra trás — deixe vazio pra todo o histórico)</label>
+      <input type="number" id="ecDias" placeholder="Ex: 60">
+    </div>
+    <div class="campo">
+      <label>Prévia da mensagem</label>
+      <textarea id="ecPreview" readonly style="min-height:160px;"></textarea>
+    </div>
+    <button class="btn btn-outline btn-block" id="btnGerarPreviaCompleto" style="margin-bottom:8px;">Gerar prévia</button>
+    <button class="btn btn-green btn-block" id="btnEnviarExtratoCompleto">Enviar por WhatsApp</button>
+    <button class="btn btn-secundario" id="btnFecharExtratoCompleto">Fechar</button>
   </div>
 </div>
 
@@ -454,6 +495,7 @@ var clienteAtualExtrato = null;
 var extratoAtalhoAtual = 'mesAtual';
 
 function hoje(){ return new Date().toISOString().slice(0,10); }
+function round2(n){ return Math.round(n*100)/100; }
 function moeda(n){ return 'R$ ' + Number(n||0).toFixed(2).replace('.', ','); }
 function dataBR(iso){ var p = String(iso).slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -483,6 +525,18 @@ function carregarTudo(){
     return data;
   });
 }
+
+function mostrarAvisoSync(mensagem){
+  document.getElementById('avisoSyncTexto').textContent = mensagem || 'Não foi possível sincronizar com a planilha agora. O lançamento já foi salvo, mas a tela pode não estar 100% atualizada.';
+  document.getElementById('avisoSync').style.display = 'flex';
+}
+function ocultarAvisoSync(){
+  document.getElementById('avisoSync').style.display = 'none';
+}
+function sincronizarEmSegundoPlano(){
+  carregarTudo().then(ocultarAvisoSync).catch(function(){ mostrarAvisoSync(); });
+}
+document.getElementById('btnRetentarSync').onclick = sincronizarEmSegundoPlano;
 
 // ---------------- LOGIN / PIN ----------------
 function iniciar(){
@@ -585,6 +639,10 @@ function renderizarClientes(filtro){
   lista.forEach(function(c){ cont.appendChild(criarLinhaCliente(c)); });
 }
 document.getElementById('buscaClienteTela').oninput = function(){ renderizarClientes(); };
+document.getElementById('btnNovoClienteTela').onclick = function(){
+  clienteSelecionadoVenda = null; // garante que não confunde com o fluxo de nova venda
+  abrirCadastroCliente(null);
+};
 
 // ---------------- DETALHE DO CLIENTE ----------------
 function abrirDetalheCliente(id){
@@ -676,7 +734,10 @@ document.getElementById('btnSalvarEdicaoVenda').onclick = function(){
     return carregarTudo();
   }).then(function(){
     abrirDetalheCliente(clienteModalAtual.ID);
-  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+  }).catch(function(e){
+    erro.textContent = 'Erro: ' + e.message;
+    mostrarAvisoSync('A edição pode ter sido salva, mas a tela não atualizou. Toque para tentar de novo.');
+  });
 };
 
 function excluirVendaConfirmar(v){
@@ -696,15 +757,24 @@ function lancarVendaRapida(){
   var erro = document.getElementById('erroQuickVenda');
   if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
   erro.textContent = 'Salvando...';
+  var clienteId = clienteModalAtual.ID;
+  var dataVenda = hoje();
 
-  chamarApi('novaVenda', { venda: { clienteId: clienteModalAtual.ID, descricao: desc, valorTotal: valor, data: hoje() } })
-    .then(function(){ return carregarTudo(); })
-    .then(function(){
+  chamarApi('novaVenda', { venda: { clienteId: clienteId, descricao: desc, valorTotal: valor, data: dataVenda } })
+    .then(function(res){
+      // atualização otimista: mostra na hora, sem esperar buscar tudo de novo do servidor
+      DADOS.vendas.push({ ID: res.id, ClienteID: clienteId, Data: dataVenda, Descricao: desc, ValorTotal: valor, ValorPago: 0, SaldoDevedor: valor, Status: 'Aberto' });
+      var cli = DADOS.clientes.filter(function(c){ return String(c.ID)===String(clienteId); })[0];
+      if(cli) cli.SaldoDevedor = round2(cli.SaldoDevedor + valor);
+
       document.getElementById('qvDescricao').value = '';
       document.getElementById('qvValor').value = '';
       erro.textContent = '';
-      abrirDetalheCliente(clienteModalAtual.ID); // mantém o modal aberto, já atualizado
+      renderizarInicio();
+      renderizarClientes();
+      abrirDetalheCliente(clienteId);
       document.getElementById('qvDescricao').focus();
+      sincronizarEmSegundoPlano(); // confirma com o servidor; avisa na tela se não conseguir
     })
     .catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
 }
@@ -770,7 +840,10 @@ document.getElementById('btnSalvarCadastroCliente').onclick = function(){
       var novo = DADOS.clientes.filter(function(c){ return String(c.ID)===String(res.id); })[0];
       selecionarClienteVenda(novo);
     }
-  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+  }).catch(function(e){
+    erro.textContent = 'Erro: ' + e.message;
+    mostrarAvisoSync('O cadastro pode ter sido salvo, mas a tela não atualizou. Toque para tentar de novo.');
+  });
 };
 
 // ---------------- NOVA VENDA ----------------
@@ -844,17 +917,22 @@ document.getElementById('btnSalvarVenda').onclick = function(){
   var valor = parseFloat(document.getElementById('vValor').value);
   if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
 
-  var venda = {
-    clienteId: clienteSelecionadoVenda.ID,
-    descricao: document.getElementById('vDescricao').value.trim(),
-    valorTotal: valor,
-    data: document.getElementById('vData').value || hoje()
-  };
+  var clienteId = clienteSelecionadoVenda.ID;
+  var descricao = document.getElementById('vDescricao').value.trim();
+  var dataVenda = document.getElementById('vData').value || hoje();
   erro.textContent = 'Salvando...';
-  chamarApi('novaVenda', { venda: venda }).then(function(){
-    fecharModal('modalVenda');
-    carregarTudo();
-  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+
+  chamarApi('novaVenda', { venda: { clienteId: clienteId, descricao: descricao, valorTotal: valor, data: dataVenda } })
+    .then(function(res){
+      DADOS.vendas.push({ ID: res.id, ClienteID: clienteId, Data: dataVenda, Descricao: descricao, ValorTotal: valor, ValorPago: 0, SaldoDevedor: valor, Status: 'Aberto' });
+      var cli = DADOS.clientes.filter(function(c){ return String(c.ID)===String(clienteId); })[0];
+      if(cli) cli.SaldoDevedor = round2(cli.SaldoDevedor + valor);
+      fecharModal('modalVenda');
+      renderizarInicio();
+      renderizarClientes();
+      sincronizarEmSegundoPlano();
+    })
+    .catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
 };
 
 // ---------------- PAGAMENTO ----------------
@@ -902,7 +980,7 @@ document.getElementById('btnSalvarPagamento').onclick = function(){
   acao.then(function(){
     fecharModal('modalPagamento');
     fecharModal('modalCliente');
-    return carregarTudo();
+    sincronizarEmSegundoPlano();
   }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; })
   .finally(function(){ btn.disabled = false; });
 };
@@ -989,6 +1067,31 @@ document.getElementById('btnEnviarExtrato').onclick = function(){
   if(extratoLinkAtual) window.open(extratoLinkAtual, '_blank');
 };
 document.getElementById('btnFecharExtrato').onclick = function(){ fecharModal('modalExtrato'); };
+
+// ---------------- EXTRATO COMPLETO ----------------
+var extratoCompletoLinkAtual = '';
+document.getElementById('btnAbrirExtratoCompleto').onclick = function(){
+  document.getElementById('ecDias').value = '';
+  document.getElementById('ecPreview').value = '';
+  extratoCompletoLinkAtual = '';
+  abrirModal('modalExtratoCompleto');
+};
+document.getElementById('btnGerarPreviaCompleto').onclick = function(){
+  var opcoes = {
+    somenteAberto: document.getElementById('ecConteudo').value === 'aberto',
+    detalhado: document.getElementById('ecFormato').value === 'detalhado',
+    dias: document.getElementById('ecDias').value ? parseInt(document.getElementById('ecDias').value, 10) : null
+  };
+  document.getElementById('ecPreview').value = 'Gerando...';
+  chamarApi('extratoCompleto', { clienteId: clienteAtualExtrato.ID, opcoes: opcoes }).then(function(res){
+    document.getElementById('ecPreview').value = res.texto;
+    extratoCompletoLinkAtual = res.link;
+  }).catch(function(e){ document.getElementById('ecPreview').value = 'Erro: ' + e.message; });
+};
+document.getElementById('btnEnviarExtratoCompleto').onclick = function(){
+  if(extratoCompletoLinkAtual) window.open(extratoCompletoLinkAtual, '_blank');
+};
+document.getElementById('btnFecharExtratoCompleto').onclick = function(){ fecharModal('modalExtratoCompleto'); };
 
 // ---------------- CONFIG ----------------
 function aplicarConfigNaTela(){
