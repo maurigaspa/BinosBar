@@ -1,0 +1,9 @@
+{
+  "name": "Caderneta de Fiado",
+  "short_name": "Fiado",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f2f4f6",
+  "theme_color": "#123b52",
+  "icons": []
+}

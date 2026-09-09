@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caderneta de Fiado</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#123b52">
+<style>
+  :root{
+    --bg:#f2f4f6;
+    --card:#ffffff;
+    --line:#dde3e8;
+    --ink:#1c2b36;
+    --ink-soft:#6b7a85;
+    --primary:#123b52;
+    --primary-light:#1f5a78;
+    --gold:#c9962f;
+    --red:#c0392b;
+    --red-bg:#fbe9e7;
+    --green:#1f8a55;
+    --green-bg:#e6f4ec;
+    --amber:#b9770e;
+    --amber-bg:#fdf1df;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system, 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-variant-numeric:tabular-nums; font-weight:600;}
+  button{font-family:inherit;}
+  input, select, textarea{font-family:inherit;}
+
+  #app{display:none;}
+  #app.pronto{display:block;}
+
+  header{
+    background:var(--primary);
+    color:#fff;
+    padding:18px 20px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  header h1{margin:0; font-size:18px; font-weight:700;}
+  header .sub{font-size:12px; opacity:.75; margin-top:2px;}
+
+  main{max-width:640px; margin:0 auto; padding:16px; padding-bottom:96px;}
+  .tela{display:none;}
+  .tela.ativa{display:block;}
+
+  nav.tabs{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--card);
+    border-top:1px solid var(--line);
+    display:flex;
+    z-index:15;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav.tabs button{
+    flex:1;
+    border:none; background:none;
+    padding:10px 4px 8px;
+    font-size:11px;
+    color:var(--ink-soft);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    cursor:pointer;
+  }
+  nav.tabs button .ic{font-size:19px;}
+  nav.tabs button.ativa{color:var(--primary);}
+  nav.tabs .badge{
+    background:var(--red); color:#fff; border-radius:8px;
+    font-size:9px; padding:1px 5px; margin-left:2px;
+  }
+
+  .cartao{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .cartao h3{margin:0 0 12px; font-size:14px; color:var(--primary);}
+
+  .resumo{display:flex; gap:10px; margin-bottom:16px;}
+  .resumo .bloco{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px;
+  }
+  .resumo .rotulo{font-size:12px; color:var(--ink-soft); margin-bottom:4px;}
+  .resumo .valor{font-size:21px;}
+  .resumo .devendo .valor{color:var(--red);}
+  .resumo .recebido .valor{color:var(--green);}
+
+  .linha-cliente{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:13px 14px; background:var(--card); border:1px solid var(--line);
+    border-radius:8px; margin-bottom:8px; cursor:pointer;
+  }
+  .linha-cliente .info .nome{font-size:15px; font-weight:600;}
+  .linha-cliente .info .tel{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+  .pill{
+    font-size:12px; padding:3px 9px; border-radius:20px; font-weight:600;
+  }
+  .pill.deve{background:var(--red-bg); color:var(--red);}
+  .pill.ok{background:var(--green-bg); color:var(--green);}
+  .pill.limite{background:var(--amber-bg); color:var(--amber);}
+
+  .campo{margin-bottom:14px;}
+  .campo label{display:block; font-size:13px; color:var(--ink-soft); margin-bottom:5px; font-weight:500;}
+  .campo input, .campo select, .campo textarea{
+    width:100%; padding:11px; border:1px solid var(--line); border-radius:7px;
+    font-size:15px; background:#fff; color:var(--ink);
+  }
+  .campo textarea{resize:vertical; min-height:80px;}
+  .linha2{display:flex; gap:10px;}
+  .linha2 .campo{flex:1;}
+
+  .btn{
+    padding:12px 16px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .btn-primario{background:var(--primary); color:#fff; width:100%;}
+  .btn-secundario{background:none; color:var(--ink-soft); width:100%; padding:9px;}
+  .btn-outline{background:#fff; border:1px solid var(--line); color:var(--ink);}
+  .btn-gold{background:var(--gold); color:#fff;}
+  .btn-red{background:var(--red); color:#fff;}
+  .btn-green{background:var(--green); color:#fff;}
+  .btn-sm{padding:8px 12px; font-size:13px; border-radius:6px;}
+  .btn-block{width:100%; margin-top:6px;}
+
+  .alerta{
+    padding:10px 12px; border-radius:7px; font-size:13px; margin-bottom:14px;
+  }
+  .alerta.aviso{background:var(--amber-bg); color:var(--amber);}
+  .alerta.erro{background:var(--red-bg); color:var(--red);}
+  .alerta.ok{background:var(--green-bg); color:var(--green);}
+
+  .vazio{text-align:center; padding:50px 20px; color:var(--ink-soft); font-size:14px;}
+
+  .fab{
+    position:fixed; bottom:76px; right:18px;
+    width:54px; height:54px; border-radius:50%;
+    background:var(--primary); color:#fff; border:none; font-size:26px;
+    box-shadow:0 4px 14px rgba(0,0,0,.25); cursor:pointer; z-index:16;
+  }
+
+  .modal-fundo{
+    display:none; position:fixed; inset:0; background:rgba(15,25,32,.55);
+    align-items:flex-end; justify-content:center; z-index:30;
+  }
+  .modal-fundo.aberto{display:flex;}
+  .modal{
+    background:var(--bg); width:100%; max-width:520px; border-radius:16px 16px 0 0;
+    padding:22px; max-height:88vh; overflow-y:auto;
+  }
+  .modal h2{margin:0 0 16px; font-size:18px; color:var(--primary);}
+
+  .item-lista{
+    border-top:1px solid var(--line); padding:12px 0; font-size:14px;
+  }
+  .item-lista:first-child{border-top:none;}
+  .item-lista .topo{display:flex; justify-content:space-between;}
+  .item-lista .sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .item-lista .acoes{margin-top:8px; display:flex; gap:8px;}
+
+  .busca-resultado{
+    border:1px solid var(--line); border-radius:7px; margin-top:6px; overflow:hidden;
+  }
+  .busca-resultado .opcao{
+    padding:11px; cursor:pointer; border-bottom:1px solid var(--line); font-size:14px;
+  }
+  .busca-resultado .opcao:last-child{border-bottom:none;}
+  .busca-resultado .opcao:hover{background:var(--bg);}
+  .busca-resultado .opcao.novo{color:var(--primary); font-weight:600;}
+
+  #pinTela{
+    display:none; position:fixed; inset:0; background:var(--primary);
+    color:#fff; align-items:center; justify-content:center; flex-direction:column; z-index:50;
+  }
+  #pinTela.ativa{display:flex;}
+  #pinTela h2{margin-bottom:18px;}
+  #pinTela input{
+    width:180px; text-align:center; font-size:24px; letter-spacing:8px;
+    padding:12px; border-radius:8px; border:none; margin-bottom:14px;
+  }
+  #pinTela .erroPin{color:#ffb3a7; font-size:13px; height:16px;}
+  #pinTela button{margin-top:6px;}
+
+  .tag-atalho{
+    display:inline-block; padding:7px 12px; border:1px solid var(--line); border-radius:20px;
+    font-size:13px; margin-right:6px; margin-bottom:6px; cursor:pointer; background:#fff;
+  }
+  .tag-atalho.ativa{background:var(--primary); color:#fff; border-color:var(--primary);}
+</style>
+</head>
+<body>
+
+<div id="pinTela">
+  <h2 id="pinTitulo">Digite o PIN</h2>
+  <input type="password" inputmode="numeric" maxlength="6" id="pinInput" autofocus>
+  <div class="erroPin" id="pinErro"></div>
+  <button class="btn btn-gold" id="btnEntrarPin">Entrar</button>
+</div>
+
+<div id="app">
+  <header>
+    <div>
+      <h1 id="nomeLojaHeader">Caderneta de Fiado</h1>
+      <div class="sub" id="dataHojeHeader"></div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- INÍCIO -->
+    <section class="tela ativa" id="telaInicio">
+      <div class="resumo">
+        <div class="bloco devendo"><div class="rotulo">A receber</div><div class="valor num" id="totalDevendo">R$ 0,00</div></div>
+        <div class="bloco recebido"><div class="rotulo">Recebido no mês</div><div class="valor num" id="totalRecebido">R$ 0,00</div></div>
+      </div>
+      <div id="listaInicio"></div>
+      <div class="vazio" id="vazioInicio" style="display:none;">Nenhuma venda lançada ainda.</div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section class="tela" id="telaClientes">
+      <div class="cartao" style="margin-bottom:14px;">
+        <input type="text" id="buscaClienteTela" placeholder="Buscar cliente...">
+      </div>
+      <div id="listaClientesTela"></div>
+    </section>
+
+    <!-- COBRANÇAS -->
+    <section class="tela" id="telaCobrancas">
+      <div id="listaCobrancas"></div>
+      <div class="vazio" id="vazioCobrancas" style="display:none;">Nenhuma cobrança pendente hoje.</div>
+    </section>
+
+    <!-- CONFIG -->
+    <section class="tela" id="telaConfig">
+      <div class="alerta aviso" id="avisoPrimeiroUso" style="display:none;">
+        Bem-vindo! Antes de continuar, preencha os dados do estabelecimento e defina um PIN de acesso.
+      </div>
+      <div class="cartao">
+        <h3>Dados do estabelecimento</h3>
+        <div class="campo"><label>Nome do estabelecimento</label><input type="text" id="cfgNomeLoja"></div>
+        <div class="campo"><label>Chave Pix</label><input type="text" id="cfgChavePix"></div>
+        <div class="campo"><label>WhatsApp da loja (opcional)</label><input type="text" id="cfgWhatsappLoja" placeholder="(00) 00000-0000"></div>
+        <div class="campo">
+          <label>Texto da cobrança (use {nome}, {loja}, {valor}, {pix})</label>
+          <textarea id="cfgTextoCobranca"></textarea>
+        </div>
+        <div class="campo"><label>PIN de acesso ao app</label><input type="password" inputmode="numeric" maxlength="6" id="cfgPin"></div>
+        <div class="erro" id="erroConfig" style="color:var(--red); font-size:13px; margin-bottom:8px;"></div>
+        <button class="btn btn-primario" id="btnSalvarConfig">Salvar</button>
+      </div>
+      <div class="cartao">
+        <h3>Conexão com a planilha</h3>
+        <div class="campo"><label>URL do Apps Script</label><input type="text" id="cfgUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div class="campo"><label>Token</label><input type="text" id="cfgToken"></div>
+        <button class="btn btn-outline btn-block" id="btnSalvarConexao">Salvar conexão</button>
+      </div>
+    </section>
+
+  </main>
+
+  <button class="fab" id="btnFabVenda" title="Nova venda">+</button>
+
+  <nav class="tabs">
+    <button class="ativa" data-tela="telaInicio"><span class="ic">🏠</span>Início</button>
+    <button data-tela="telaClientes"><span class="ic">👥</span>Clientes</button>
+    <button data-tela="telaCobrancas"><span class="ic">📣</span>Cobranças<span class="badge" id="badgeCobrancas" style="display:none;"></span></button>
+    <button data-tela="telaConfig"><span class="ic">⚙️</span>Config</button>
+  </nav>
+</div>
+
+<!-- MODAL: DETALHE DO CLIENTE -->
+<div class="modal-fundo" id="modalCliente">
+  <div class="modal">
+    <h2 id="detCliNome">Cliente</h2>
+
+    <div class="cartao" style="padding:12px; margin-bottom:12px;">
+      <div class="linha2" style="margin-bottom:0;">
+        <div class="campo" style="margin-bottom:0;"><input type="text" id="qvDescricao" placeholder="O que comprou?"></div>
+        <div class="campo" style="margin-bottom:0; max-width:100px;"><input type="number" step="0.01" id="qvValor" placeholder="R$"></div>
+      </div>
+      <div class="erro" id="erroQuickVenda" style="color:var(--red); font-size:12px; margin-top:6px;"></div>
+      <button class="btn btn-gold btn-block btn-sm" id="btnQuickVenda" style="margin-top:8px;">+ Adicionar venda de hoje</button>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" id="btnEditarCliente">Editar cadastro</button>
+      <button class="btn btn-outline btn-sm" id="btnExtratoCliente">Gerar extrato</button>
+      <button class="btn btn-red btn-sm" id="btnExcluirCliente">Excluir</button>
+    </div>
+    <div class="alerta" id="detCliLimiteAlerta" style="display:none;"></div>
+    <div id="detCliVendas"></div>
+    <button class="btn btn-secundario" id="btnFecharCliente">Fechar</button>
+  </div>
+</div>
+
+<!-- MODAL: CADASTRAR/EDITAR CLIENTE -->
+<div class="modal-fundo" id="modalCadastroCliente">
+  <div class="modal">
+    <h2 id="tituloCadastroCliente">Novo cliente</h2>
+    <div class="campo"><label>Nome</label><input type="text" id="ccNome"></div>
+    <div class="campo"><label>Telefone (WhatsApp)</label><input type="text" id="ccTelefone" placeholder="(00) 00000-0000"></div>
+    <div class="linha2">
+      <div class="campo"><label>Limite de crédito (R$)</label><input type="number" step="0.01" id="ccLimite" value="0"></div>
+      <div class="campo">
+        <label>Ciclo de cobrança</label>
+        <select id="ccCiclo">
+          <option value="1">1 mês</option>
+          <option value="2">2 meses</option>
+          <option value="3">3 meses</option>
+        </select>
+      </div>
+    </div>
+    <div class="campo"><label>Observação (opcional)</label><textarea id="ccObservacao"></textarea></div>
+    <div class="erro" id="erroCadastroCliente" style="color:var(--red); font-size:13px; margin-bottom:8px;"></div>
+    <button class="btn btn-primario" id="btnSalvarCadastroCliente">Salvar</button>
+    <button class="btn btn-secundario" id="btnFecharCadastroCliente">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: NOVA VENDA -->
+<div class="modal-fundo" id="modalVenda">
+  <div class="modal">
+    <h2>Nova venda</h2>
+    <div class="campo">
+      <label>Cliente</label>
+      <input type="text" id="vBuscaCliente" placeholder="Digite o nome do cliente...">
+      <div class="busca-resultado" id="vResultadoBusca" style="display:none;"></div>
+      <div class="alerta ok" id="vClienteSelecionado" style="display:none;"></div>
+    </div>
+    <div class="campo"><label>Descrição</label><input type="text" id="vDescricao" placeholder="Ex: 2 sacos de ração"></div>
+    <div class="linha2">
+      <div class="campo"><label>Valor total (R$)</label><input type="number" step="0.01" id="vValor"></div>
+      <div class="campo"><label>Data</label><input type="date" id="vData"></div>
+    </div>
+    <div class="alerta aviso" id="vAvisoLimite" style="display:none;"></div>
+    <div class="erro" id="erroVenda" style="color:var(--red); font-size:13px; margin-bottom:8px;"></div>
+    <button class="btn btn-primario" id="btnSalvarVenda">Registrar venda</button>
+    <button class="btn btn-secundario" id="btnFecharVenda">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: PAGAMENTO -->
+<div class="modal-fundo" id="modalPagamento">
+  <div class="modal">
+    <h2>Registrar pagamento</h2>
+    <p style="font-size:13px; color:var(--ink-soft)" id="pagInfo"></p>
+    <div class="campo">
+      <label>Modo</label>
+      <select id="pModo">
+        <option value="auto">Automático (abate das compras mais antigas)</option>
+        <option value="manual">Manual (escolher a venda)</option>
+      </select>
+    </div>
+    <div class="campo" id="pCampoVendaManual" style="display:none;">
+      <label>Venda</label>
+      <select id="pVendaManual"></select>
+    </div>
+    <div class="linha2">
+      <div class="campo"><label>Valor pago (R$)</label><input type="number" step="0.01" id="pValor"></div>
+      <div class="campo"><label>Data</label><input type="date" id="pData"></div>
+    </div>
+    <div class="erro" id="erroPagamento" style="color:var(--red); font-size:13px; margin-bottom:8px;"></div>
+    <button class="btn btn-primario" id="btnSalvarPagamento">Salvar pagamento</button>
+    <button class="btn btn-secundario" id="btnFecharPagamento">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: POSTERGAR -->
+<div class="modal-fundo" id="modalPostergar">
+  <div class="modal">
+    <h2>Postergar aviso</h2>
+    <div class="campo"><label>Avisar novamente em quantos dias?</label><input type="number" id="postDias" value="7" min="1"></div>
+    <button class="btn btn-primario" id="btnSalvarPostergar">Confirmar</button>
+    <button class="btn btn-secundario" id="btnFecharPostergar">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: EXTRATO -->
+<div class="modal-fundo" id="modalExtrato">
+  <div class="modal">
+    <h2>Gerar extrato</h2>
+    <div>
+      <span class="tag-atalho ativa" data-atalho="mesAtual">Mês atual</span>
+      <span class="tag-atalho" data-atalho="ultimos30">Últimos 30 dias</span>
+      <span class="tag-atalho" data-atalho="desdeUltimaCobranca">Desde a última cobrança</span>
+    </div>
+    <div class="campo" style="margin-top:14px;">
+      <label>Prévia da mensagem</label>
+      <textarea id="extratoPreview" readonly style="min-height:160px;"></textarea>
+    </div>
+    <button class="btn btn-green btn-block" id="btnEnviarExtrato">Enviar por WhatsApp</button>
+    <button class="btn btn-secundario" id="btnFecharExtrato">Fechar</button>
+  </div>
+</div>
+
+<script>
+var CFG = JSON.parse(localStorage.getItem('fiado_cfg') || '{}');
+var LOGADO = sessionStorage.getItem('fiado_logado') === '1';
+var DADOS = { clientes: [], vendas: [], pagamentos: [], config: {} };
+var clienteSelecionadoVenda = null;
+var clienteModalAtual = null;
+var vendaAtualPagamento = null;
+var clienteAtualPostergar = null;
+var clienteAtualExtrato = null;
+var extratoAtalhoAtual = 'mesAtual';
+
+function hoje(){ return new Date().toISOString().slice(0,10); }
+function moeda(n){ return 'R$ ' + Number(n||0).toFixed(2).replace('.', ','); }
+function dataBR(iso){ var p = String(iso).slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function abrirModal(id){ document.getElementById(id).classList.add('aberto'); }
+function fecharModal(id){ document.getElementById(id).classList.remove('aberto'); }
+
+document.getElementById('dataHojeHeader').textContent = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+
+// ---------------- API ----------------
+function chamarApi(action, extra){
+  if(!CFG.url || !CFG.token) return Promise.reject(new Error('Configure a conexão com a planilha primeiro.'));
+  var payload = Object.assign({ action: action, token: CFG.token }, extra || {});
+  var url = CFG.url + '?data=' + encodeURIComponent(JSON.stringify(payload));
+  return fetch(url).then(function(r){ return r.json(); }).then(function(res){
+    if(!res.ok) throw new Error(res.error || 'Erro desconhecido');
+    return res.data;
+  });
+}
+
+function carregarTudo(){
+  return chamarApi('listar').then(function(data){
+    DADOS = data;
+    aplicarConfigNaTela();
+    renderizarInicio();
+    renderizarClientes();
+    renderizarCobrancas();
+    return data;
+  });
+}
+
+// ---------------- LOGIN / PIN ----------------
+function iniciar(){
+  if(!CFG.url || !CFG.token){
+    // primeira vez: precisa configurar a conexão antes de tudo
+    document.getElementById('pinTela').classList.remove('ativa');
+    document.getElementById('app').classList.add('pronto');
+    mostrarTela('telaConfig');
+    document.getElementById('avisoPrimeiroUso').style.display = 'block';
+    return;
+  }
+  carregarTudo().then(function(data){
+    if(!data.config.PinAcesso){
+      document.getElementById('app').classList.add('pronto');
+      mostrarTela('telaConfig');
+      document.getElementById('avisoPrimeiroUso').style.display = 'block';
+      return;
+    }
+    if(LOGADO){
+      document.getElementById('app').classList.add('pronto');
+    } else {
+      document.getElementById('pinTela').classList.add('ativa');
+    }
+  }).catch(function(e){
+    document.getElementById('app').classList.add('pronto');
+    mostrarTela('telaConfig');
+  });
+}
+
+document.getElementById('btnEntrarPin').onclick = function(){
+  var pin = document.getElementById('pinInput').value;
+  chamarApi('verificarPin', { pin: pin }).then(function(res){
+    if(res.ok){
+      sessionStorage.setItem('fiado_logado', '1');
+      document.getElementById('pinTela').classList.remove('ativa');
+      document.getElementById('app').classList.add('pronto');
+    } else {
+      document.getElementById('pinErro').textContent = 'PIN incorreto.';
+    }
+  }).catch(function(e){ document.getElementById('pinErro').textContent = e.message; });
+};
+
+// ---------------- NAVEGAÇÃO ----------------
+document.querySelectorAll('nav.tabs button').forEach(function(btn){
+  btn.onclick = function(){ mostrarTela(this.dataset.tela); };
+});
+function mostrarTela(id){
+  document.querySelectorAll('.tela').forEach(function(t){ t.classList.remove('ativa'); });
+  document.getElementById(id).classList.add('ativa');
+  document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.remove('ativa'); });
+  var btn = document.querySelector('nav.tabs button[data-tela="'+id+'"]');
+  if(btn) btn.classList.add('ativa');
+}
+
+// ---------------- RENDER: INÍCIO ----------------
+function renderizarInicio(){
+  var lista = DADOS.clientes.slice().sort(function(a,b){ return b.SaldoDevedor - a.SaldoDevedor; });
+  var totalDevendo = lista.reduce(function(s,c){ return s + c.SaldoDevedor; }, 0);
+  var mesAtual = hoje().slice(0,7);
+  var totalRecebido = DADOS.pagamentos.filter(function(p){ return String(p.Data).slice(0,7) === mesAtual; })
+    .reduce(function(s,p){ return s + Number(p.Valor); }, 0);
+
+  document.getElementById('totalDevendo').textContent = moeda(totalDevendo);
+  document.getElementById('totalRecebido').textContent = moeda(totalRecebido);
+
+  var cont = document.getElementById('listaInicio');
+  document.getElementById('vazioInicio').style.display = lista.length ? 'none' : 'block';
+  cont.innerHTML = '';
+  lista.forEach(function(c){ cont.appendChild(criarLinhaCliente(c)); });
+}
+
+function criarLinhaCliente(c){
+  var el = document.createElement('div');
+  el.className = 'linha-cliente';
+  var pillClasse = c.SaldoDevedor > 0.009 ? 'deve' : 'ok';
+  if(Number(c.LimiteCredito) > 0 && c.SaldoDevedor > Number(c.LimiteCredito)) pillClasse = 'limite';
+  el.innerHTML =
+    '<div class="info"><div class="nome">'+escapeHtml(c.Nome)+'</div>'+
+    (c.Telefone ? '<div class="tel">'+escapeHtml(c.Telefone)+'</div>' : '')+'</div>'+
+    '<span class="pill '+pillClasse+' num">'+moeda(c.SaldoDevedor)+'</span>';
+  el.onclick = function(){ abrirDetalheCliente(c.ID); };
+  return el;
+}
+
+// ---------------- RENDER: CLIENTES ----------------
+function renderizarClientes(filtro){
+  var termo = (filtro || document.getElementById('buscaClienteTela').value || '').toLowerCase();
+  var lista = DADOS.clientes.filter(function(c){ return c.Nome.toLowerCase().indexOf(termo) >= 0; })
+    .sort(function(a,b){ return a.Nome.localeCompare(b.Nome); });
+  var cont = document.getElementById('listaClientesTela');
+  cont.innerHTML = '';
+  lista.forEach(function(c){ cont.appendChild(criarLinhaCliente(c)); });
+}
+document.getElementById('buscaClienteTela').oninput = function(){ renderizarClientes(); };
+
+// ---------------- DETALHE DO CLIENTE ----------------
+function abrirDetalheCliente(id){
+  var c = DADOS.clientes.filter(function(x){ return String(x.ID)===String(id); })[0];
+  if(!c) return;
+  clienteModalAtual = c;
+  document.getElementById('detCliNome').textContent = c.Nome;
+
+  var alertaLimite = document.getElementById('detCliLimiteAlerta');
+  if(Number(c.LimiteCredito) > 0 && c.SaldoDevedor > Number(c.LimiteCredito)){
+    alertaLimite.className = 'alerta erro';
+    alertaLimite.style.display = 'block';
+    alertaLimite.textContent = 'Saldo (' + moeda(c.SaldoDevedor) + ') ultrapassa o limite de ' + moeda(c.LimiteCredito) + '.';
+  } else {
+    alertaLimite.style.display = 'none';
+  }
+
+  var vendas = DADOS.vendas.filter(function(v){ return String(v.ClienteID)===String(c.ID); })
+    .sort(function(a,b){ return new Date(b.Data)-new Date(a.Data); });
+
+  var cont = document.getElementById('detCliVendas');
+  cont.innerHTML = '';
+  if(!vendas.length){
+    cont.innerHTML = '<div class="vazio">Nenhuma venda registrada.</div>';
+  }
+  vendas.forEach(function(v){
+    var item = document.createElement('div');
+    item.className = 'item-lista';
+    item.innerHTML =
+      '<div class="topo"><span>'+escapeHtml(v.Descricao || 'Compra')+'</span><span class="num">'+moeda(v.ValorTotal)+'</span></div>'+
+      '<div class="sub">'+dataBR(v.Data)+' · saldo <b class="num">'+moeda(v.SaldoDevedor)+'</b> · '+v.Status+'</div>';
+    cont.appendChild(item);
+  });
+
+  var acoesPag = document.createElement('div');
+  acoesPag.className = 'item-lista';
+  var btnPagar = document.createElement('button');
+  btnPagar.className = 'btn btn-green btn-block';
+  btnPagar.textContent = 'Registrar pagamento';
+  btnPagar.style.display = c.SaldoDevedor > 0.009 ? 'block' : 'none';
+  btnPagar.onclick = function(){ abrirModalPagamentoCliente(c); };
+  acoesPag.appendChild(btnPagar);
+  cont.appendChild(acoesPag);
+
+  abrirModal('modalCliente');
+}
+document.getElementById('btnFecharCliente').onclick = function(){ fecharModal('modalCliente'); };
+
+// ---------------- VENDA RÁPIDA (dentro do perfil do cliente) ----------------
+function lancarVendaRapida(){
+  var desc = document.getElementById('qvDescricao').value.trim();
+  var valor = parseFloat(document.getElementById('qvValor').value);
+  var erro = document.getElementById('erroQuickVenda');
+  if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
+  erro.textContent = 'Salvando...';
+
+  chamarApi('novaVenda', { venda: { clienteId: clienteModalAtual.ID, descricao: desc, valorTotal: valor, data: hoje() } })
+    .then(function(){ return carregarTudo(); })
+    .then(function(){
+      document.getElementById('qvDescricao').value = '';
+      document.getElementById('qvValor').value = '';
+      erro.textContent = '';
+      abrirDetalheCliente(clienteModalAtual.ID); // mantém o modal aberto, já atualizado
+      document.getElementById('qvDescricao').focus();
+    })
+    .catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+}
+document.getElementById('btnQuickVenda').onclick = lancarVendaRapida;
+['qvDescricao','qvValor'].forEach(function(id){
+  document.getElementById(id).addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); lancarVendaRapida(); }
+  });
+});
+
+document.getElementById('btnExcluirCliente').onclick = function(){
+  if(!clienteModalAtual) return;
+  if(!confirm('Excluir ' + clienteModalAtual.Nome + '? Só é possível se não houver venda em aberto.')) return;
+  chamarApi('excluirCliente', { id: clienteModalAtual.ID }).then(function(){
+    fecharModal('modalCliente');
+    carregarTudo();
+  }).catch(function(e){ alert(e.message); });
+};
+
+document.getElementById('btnEditarCliente').onclick = function(){
+  if(!clienteModalAtual) return;
+  abrirCadastroCliente(clienteModalAtual);
+};
+
+// ---------------- CADASTRO / EDIÇÃO DE CLIENTE ----------------
+function abrirCadastroCliente(clienteExistente){
+  document.getElementById('tituloCadastroCliente').textContent = clienteExistente ? 'Editar cliente' : 'Novo cliente';
+  document.getElementById('ccNome').value = clienteExistente ? clienteExistente.Nome : '';
+  document.getElementById('ccTelefone').value = clienteExistente ? clienteExistente.Telefone : '';
+  document.getElementById('ccLimite').value = clienteExistente ? clienteExistente.LimiteCredito : 0;
+  document.getElementById('ccCiclo').value = clienteExistente ? clienteExistente.Ciclo : 1;
+  document.getElementById('ccObservacao').value = clienteExistente ? clienteExistente.Observacao : '';
+  document.getElementById('erroCadastroCliente').textContent = '';
+  document.getElementById('btnSalvarCadastroCliente').dataset.editId = clienteExistente ? clienteExistente.ID : '';
+  abrirModal('modalCadastroCliente');
+}
+document.getElementById('btnFecharCadastroCliente').onclick = function(){ fecharModal('modalCadastroCliente'); };
+
+document.getElementById('btnSalvarCadastroCliente').onclick = function(){
+  var nome = document.getElementById('ccNome').value.trim();
+  var erro = document.getElementById('erroCadastroCliente');
+  if(!nome){ erro.textContent = 'Informe o nome do cliente.'; return; }
+
+  var payload = {
+    nome: nome,
+    telefone: document.getElementById('ccTelefone').value.trim(),
+    limiteCredito: parseFloat(document.getElementById('ccLimite').value) || 0,
+    ciclo: parseInt(document.getElementById('ccCiclo').value, 10),
+    observacao: document.getElementById('ccObservacao').value.trim()
+  };
+  var editId = this.dataset.editId;
+  erro.textContent = 'Salvando...';
+
+  var acao = editId ? chamarApi('editarCliente', { cliente: Object.assign({id: editId}, payload) })
+                     : chamarApi('novoCliente', { cliente: payload });
+
+  acao.then(function(res){
+    fecharModal('modalCadastroCliente');
+    fecharModal('modalCliente');
+    return carregarTudo().then(function(){ return res; });
+  }).then(function(res){
+    if(!editId && clienteSelecionadoVenda === 'AGUARDANDO_NOVO'){
+      var novo = DADOS.clientes.filter(function(c){ return String(c.ID)===String(res.id); })[0];
+      selecionarClienteVenda(novo);
+    }
+  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+};
+
+// ---------------- NOVA VENDA ----------------
+document.getElementById('btnFabVenda').onclick = function(){
+  clienteSelecionadoVenda = null;
+  document.getElementById('vBuscaCliente').value = '';
+  document.getElementById('vResultadoBusca').style.display = 'none';
+  document.getElementById('vClienteSelecionado').style.display = 'none';
+  document.getElementById('vDescricao').value = '';
+  document.getElementById('vValor').value = '';
+  document.getElementById('vData').value = hoje();
+  document.getElementById('vAvisoLimite').style.display = 'none';
+  document.getElementById('erroVenda').textContent = '';
+  abrirModal('modalVenda');
+};
+document.getElementById('btnFecharVenda').onclick = function(){ fecharModal('modalVenda'); };
+
+document.getElementById('vBuscaCliente').oninput = function(){
+  var termo = this.value.toLowerCase().trim();
+  var box = document.getElementById('vResultadoBusca');
+  if(!termo){ box.style.display = 'none'; return; }
+  var achados = DADOS.clientes.filter(function(c){ return c.Nome.toLowerCase().indexOf(termo) >= 0; }).slice(0,6);
+  box.innerHTML = '';
+  achados.forEach(function(c){
+    var op = document.createElement('div');
+    op.className = 'opcao';
+    op.textContent = c.Nome + (c.Telefone ? ' · ' + c.Telefone : '');
+    op.onclick = function(){ selecionarClienteVenda(c); };
+    box.appendChild(op);
+  });
+  var opNovo = document.createElement('div');
+  opNovo.className = 'opcao novo';
+  opNovo.textContent = '+ Cadastrar novo cliente "' + this.value + '"';
+  opNovo.onclick = function(){
+    clienteSelecionadoVenda = 'AGUARDANDO_NOVO';
+    abrirCadastroCliente(null);
+    document.getElementById('ccNome').value = termo;
+  };
+  box.appendChild(opNovo);
+  box.style.display = 'block';
+};
+
+function selecionarClienteVenda(c){
+  clienteSelecionadoVenda = c;
+  document.getElementById('vResultadoBusca').style.display = 'none';
+  document.getElementById('vBuscaCliente').value = c.Nome;
+  var sel = document.getElementById('vClienteSelecionado');
+  sel.style.display = 'block';
+  sel.textContent = 'Cliente selecionado: ' + c.Nome + (c.Telefone ? ' (' + c.Telefone + ')' : '');
+  avaliarLimiteVenda();
+}
+
+function avaliarLimiteVenda(){
+  var aviso = document.getElementById('vAvisoLimite');
+  var valor = parseFloat(document.getElementById('vValor').value) || 0;
+  if(clienteSelecionadoVenda && typeof clienteSelecionadoVenda === 'object' && Number(clienteSelecionadoVenda.LimiteCredito) > 0){
+    var novoSaldo = clienteSelecionadoVenda.SaldoDevedor + valor;
+    if(novoSaldo > Number(clienteSelecionadoVenda.LimiteCredito)){
+      aviso.style.display = 'block';
+      aviso.textContent = 'Atenção: essa venda deixa o cliente com ' + moeda(novoSaldo) + ', acima do limite de ' + moeda(clienteSelecionadoVenda.LimiteCredito) + '.';
+      return;
+    }
+  }
+  aviso.style.display = 'none';
+}
+document.getElementById('vValor').oninput = avaliarLimiteVenda;
+
+document.getElementById('btnSalvarVenda').onclick = function(){
+  var erro = document.getElementById('erroVenda');
+  if(!clienteSelecionadoVenda || typeof clienteSelecionadoVenda !== 'object'){ erro.textContent = 'Selecione um cliente cadastrado.'; return; }
+  var valor = parseFloat(document.getElementById('vValor').value);
+  if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
+
+  var venda = {
+    clienteId: clienteSelecionadoVenda.ID,
+    descricao: document.getElementById('vDescricao').value.trim(),
+    valorTotal: valor,
+    data: document.getElementById('vData').value || hoje()
+  };
+  erro.textContent = 'Salvando...';
+  chamarApi('novaVenda', { venda: venda }).then(function(){
+    fecharModal('modalVenda');
+    carregarTudo();
+  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+};
+
+// ---------------- PAGAMENTO ----------------
+function abrirModalPagamentoCliente(c){
+  clienteModalAtual = c;
+  document.getElementById('pagInfo').textContent = c.Nome + ' — saldo atual: ' + moeda(c.SaldoDevedor);
+  document.getElementById('pModo').value = 'auto';
+  document.getElementById('pCampoVendaManual').style.display = 'none';
+  document.getElementById('pValor').value = '';
+  document.getElementById('pData').value = hoje();
+  document.getElementById('erroPagamento').textContent = '';
+
+  var vendasAbertas = DADOS.vendas.filter(function(v){ return String(v.ClienteID)===String(c.ID) && v.SaldoDevedor > 0.009; });
+  var sel = document.getElementById('pVendaManual');
+  sel.innerHTML = '';
+  vendasAbertas.forEach(function(v){
+    var op = document.createElement('option');
+    op.value = v.ID;
+    op.textContent = dataBR(v.Data) + ' - ' + (v.Descricao || 'Compra') + ' - saldo ' + moeda(v.SaldoDevedor);
+    sel.appendChild(op);
+  });
+
+  abrirModal('modalPagamento');
+}
+document.getElementById('btnFecharPagamento').onclick = function(){ fecharModal('modalPagamento'); };
+document.getElementById('pModo').onchange = function(){
+  document.getElementById('pCampoVendaManual').style.display = this.value === 'manual' ? 'block' : 'none';
+};
+
+document.getElementById('btnSalvarPagamento').onclick = function(){
+  var valor = parseFloat(document.getElementById('pValor').value);
+  var data = document.getElementById('pData').value || hoje();
+  var erro = document.getElementById('erroPagamento');
+  if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
+
+  var modo = document.getElementById('pModo').value;
+  erro.textContent = 'Salvando...';
+
+  var acao = modo === 'auto'
+    ? chamarApi('pagamentoAuto', { clienteId: clienteModalAtual.ID, valor: valor, data: data })
+    : chamarApi('pagamentoManual', { vendaId: document.getElementById('pVendaManual').value, valor: valor, data: data });
+
+  acao.then(function(){
+    fecharModal('modalPagamento');
+    fecharModal('modalCliente');
+    carregarTudo();
+  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+};
+
+// ---------------- COBRANÇAS DE HOJE ----------------
+function renderizarCobrancas(){
+  chamarApi('cobrancasHoje').then(function(lista){
+    var cont = document.getElementById('listaCobrancas');
+    var badge = document.getElementById('badgeCobrancas');
+    cont.innerHTML = '';
+    document.getElementById('vazioCobrancas').style.display = lista.length ? 'none' : 'block';
+    if(lista.length){ badge.style.display = 'inline-block'; badge.textContent = lista.length; }
+    else { badge.style.display = 'none'; }
+
+    lista.forEach(function(c){
+      var card = document.createElement('div');
+      card.className = 'cartao';
+      card.innerHTML =
+        '<h3>'+escapeHtml(c.Nome)+' · <span class="num">'+moeda(c.SaldoDevedor)+'</span></h3>'+
+        '<p style="font-size:13px; color:var(--ink-soft); white-space:pre-line;">'+escapeHtml(c.mensagem)+'</p>';
+      var acoes = document.createElement('div');
+      acoes.style.display = 'flex';
+      acoes.style.gap = '8px';
+
+      var btnEnviar = document.createElement('a');
+      btnEnviar.className = 'btn btn-green btn-sm';
+      btnEnviar.textContent = 'Enviar';
+      btnEnviar.href = c.linkWhatsapp;
+      btnEnviar.target = '_blank';
+      btnEnviar.onclick = function(){ chamarApi('marcarEnviado', { clienteId: c.ID }).then(carregarTudo); };
+
+      var btnPostergar = document.createElement('button');
+      btnPostergar.className = 'btn btn-outline btn-sm';
+      btnPostergar.textContent = 'Postergar';
+      btnPostergar.onclick = function(){
+        clienteAtualPostergar = c;
+        document.getElementById('postDias').value = 7;
+        abrirModal('modalPostergar');
+      };
+
+      acoes.appendChild(btnEnviar);
+      acoes.appendChild(btnPostergar);
+      card.appendChild(acoes);
+      cont.appendChild(card);
+    });
+  });
+}
+document.getElementById('btnFecharPostergar').onclick = function(){ fecharModal('modalPostergar'); };
+document.getElementById('btnSalvarPostergar').onclick = function(){
+  var dias = parseInt(document.getElementById('postDias').value, 10) || 7;
+  chamarApi('postergar', { clienteId: clienteAtualPostergar.ID, dias: dias }).then(function(){
+    fecharModal('modalPostergar');
+    renderizarCobrancas();
+  });
+};
+
+// ---------------- EXTRATO ----------------
+document.getElementById('btnExtratoCliente').onclick = function(){
+  clienteAtualExtrato = clienteModalAtual;
+  extratoAtalhoAtual = 'mesAtual';
+  document.querySelectorAll('.tag-atalho').forEach(function(t){ t.classList.toggle('ativa', t.dataset.atalho === extratoAtalhoAtual); });
+  gerarPreviaExtrato();
+  abrirModal('modalExtrato');
+};
+document.querySelectorAll('.tag-atalho').forEach(function(t){
+  t.onclick = function(){
+    extratoAtalhoAtual = this.dataset.atalho;
+    document.querySelectorAll('.tag-atalho').forEach(function(x){ x.classList.remove('ativa'); });
+    this.classList.add('ativa');
+    gerarPreviaExtrato();
+  };
+});
+var extratoLinkAtual = '';
+function gerarPreviaExtrato(){
+  chamarApi('extrato', { clienteId: clienteAtualExtrato.ID, atalho: extratoAtalhoAtual }).then(function(res){
+    document.getElementById('extratoPreview').value = res.texto;
+    extratoLinkAtual = res.link;
+  });
+}
+document.getElementById('btnEnviarExtrato').onclick = function(){
+  if(extratoLinkAtual) window.open(extratoLinkAtual, '_blank');
+};
+document.getElementById('btnFecharExtrato').onclick = function(){ fecharModal('modalExtrato'); };
+
+// ---------------- CONFIG ----------------
+function aplicarConfigNaTela(){
+  var cfg = DADOS.config || {};
+  document.getElementById('nomeLojaHeader').textContent = cfg.NomeLoja || 'Caderneta de Fiado';
+  document.getElementById('cfgNomeLoja').value = cfg.NomeLoja || '';
+  document.getElementById('cfgChavePix').value = cfg.ChavePix || '';
+  document.getElementById('cfgWhatsappLoja').value = cfg.WhatsappLoja || '';
+  document.getElementById('cfgTextoCobranca').value = cfg.TextoCobranca ||
+    'Olá {nome}! Aqui é da {loja}. Você tem um saldo de {valor} em aberto. Pix: {pix}. Pode pagar por aqui ou passar na loja para acertarmos. Obrigado!';
+}
+
+document.getElementById('btnSalvarConfig').onclick = function(){
+  var erro = document.getElementById('erroConfig');
+  var pin = document.getElementById('cfgPin').value.trim();
+  var payload = {
+    NomeLoja: document.getElementById('cfgNomeLoja').value.trim(),
+    ChavePix: document.getElementById('cfgChavePix').value.trim(),
+    WhatsappLoja: document.getElementById('cfgWhatsappLoja').value.trim(),
+    TextoCobranca: document.getElementById('cfgTextoCobranca').value.trim()
+  };
+  if(pin) payload.PinAcesso = pin;
+  erro.textContent = 'Salvando...';
+  chamarApi('salvarConfig', { config: payload }).then(function(){
+    document.getElementById('avisoPrimeiroUso').style.display = 'none';
+    erro.textContent = '';
+    document.getElementById('cfgPin').value = '';
+    return carregarTudo();
+  }).then(function(data){
+    if(data.config.PinAcesso && !LOGADO){
+      document.getElementById('pinTela').classList.add('ativa');
+    }
+  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+};
+
+document.getElementById('btnSalvarConexao').onclick = function(){
+  CFG = { url: document.getElementById('cfgUrl').value.trim(), token: document.getElementById('cfgToken').value.trim() };
+  localStorage.setItem('fiado_cfg', JSON.stringify(CFG));
+  iniciar();
+};
+
+// ---------------- INÍCIO ----------------
+document.getElementById('cfgUrl').value = CFG.url || '';
+document.getElementById('cfgToken').value = CFG.token || '';
+iniciar();
+</script>
+</body>
+</html>
