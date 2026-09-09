@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Caderneta de Fiado</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="theme-color" content="#123b52">
 <style>
   :root{
@@ -889,6 +891,8 @@ document.getElementById('btnSalvarPagamento').onclick = function(){
   if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
 
   var modo = document.getElementById('pModo').value;
+  var btn = this;
+  btn.disabled = true;
   erro.textContent = 'Salvando...';
 
   var acao = modo === 'auto'
@@ -898,8 +902,9 @@ document.getElementById('btnSalvarPagamento').onclick = function(){
   acao.then(function(){
     fecharModal('modalPagamento');
     fecharModal('modalCliente');
-    carregarTudo();
-  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+    return carregarTudo();
+  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; })
+  .finally(function(){ btn.disabled = false; });
 };
 
 // ---------------- COBRANÇAS DE HOJE ----------------
