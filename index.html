@@ -22,6 +22,7 @@
     --green-bg:#e6f4ec;
     --amber:#b9770e;
     --amber-bg:#fdf1df;
+    --nav-h:62px;
   }
   *{box-sizing:border-box;}
   body{
@@ -58,7 +59,8 @@
     background:var(--card);
     border-top:1px solid var(--line);
     display:flex;
-    z-index:15;
+    z-index:35;
+    min-height:var(--nav-h);
     padding-bottom:env(safe-area-inset-bottom);
   }
   nav.tabs button{
@@ -148,15 +150,23 @@
   }
 
   .modal-fundo{
-    display:none; position:fixed; inset:0; background:rgba(15,25,32,.55);
+    display:none; position:fixed; top:0; left:0; right:0; bottom:var(--nav-h);
+    background:rgba(15,25,32,.55);
     align-items:flex-end; justify-content:center; z-index:30;
   }
   .modal-fundo.aberto{display:flex;}
   .modal{
     background:var(--bg); width:100%; max-width:520px; border-radius:16px 16px 0 0;
-    padding:22px; max-height:88vh; overflow-y:auto;
+    padding:22px; max-height:88vh; overflow-y:auto; position:relative;
   }
   .modal h2{margin:0 0 16px; font-size:18px; color:var(--primary);}
+  .modal-fechar-x{
+    position:absolute; top:16px; right:16px;
+    width:30px; height:30px; border-radius:50%;
+    border:none; background:var(--card); color:var(--ink-soft);
+    font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.15);
+  }
 
   .item-lista{
     border-top:1px solid var(--line); padding:12px 0; font-size:14px;
@@ -292,6 +302,7 @@
 <!-- MODAL: DETALHE DO CLIENTE -->
 <div class="modal-fundo" id="modalCliente">
   <div class="modal">
+    <button class="modal-fechar-x" id="btnFecharClienteX" title="Fechar">✕</button>
     <h2 id="detCliNome">Cliente</h2>
 
     <div class="cartao" style="padding:12px; margin-bottom:12px;">
@@ -516,7 +527,12 @@ document.getElementById('btnEntrarPin').onclick = function(){
 document.querySelectorAll('nav.tabs button').forEach(function(btn){
   btn.onclick = function(){ mostrarTela(this.dataset.tela); };
 });
+function fecharTodosModais(){
+  document.querySelectorAll('.modal-fundo').forEach(function(m){ m.classList.remove('aberto'); });
+}
+
 function mostrarTela(id){
+  fecharTodosModais();
   document.querySelectorAll('.tela').forEach(function(t){ t.classList.remove('ativa'); });
   document.getElementById(id).classList.add('ativa');
   document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.remove('ativa'); });
@@ -627,6 +643,7 @@ function abrirDetalheCliente(id){
   abrirModal('modalCliente');
 }
 document.getElementById('btnFecharCliente').onclick = function(){ fecharModal('modalCliente'); };
+document.getElementById('btnFecharClienteX').onclick = function(){ fecharModal('modalCliente'); };
 
 // ---------------- EDITAR / EXCLUIR VENDA ----------------
 var vendaEmEdicao = null;
