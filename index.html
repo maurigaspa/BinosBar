@@ -263,6 +263,18 @@
         <div class="campo"><label>Token</label><input type="text" id="cfgToken"></div>
         <button class="btn btn-outline btn-block" id="btnSalvarConexao">Salvar conexão</button>
       </div>
+
+      <div class="cartao">
+        <h3>Manutenção — limpar histórico antigo</h3>
+        <p style="font-size:13px; color:var(--ink-soft); margin-top:0;">
+          Exclui definitivamente as vendas já quitadas (pagas) lançadas até a data escolhida, junto com os pagamentos vinculados a elas.
+          Vendas em aberto nunca são excluídas, e o cadastro do cliente continua intacto. Essa ação não pode ser desfeita.
+        </p>
+        <div class="campo"><label>Excluir compras quitadas até:</label><input type="date" id="mntData"></div>
+        <div class="erro" id="mntMsg" style="font-size:13px; margin-bottom:8px;"></div>
+        <button class="btn btn-outline btn-block" id="btnVerificarHistorico">Verificar quantidade</button>
+        <button class="btn btn-red btn-block" id="btnExcluirHistorico" style="margin-top:8px;">Excluir definitivamente</button>
+      </div>
     </section>
 
   </main>
@@ -384,6 +396,21 @@
   </div>
 </div>
 
+<!-- MODAL: EDITAR VENDA -->
+<div class="modal-fundo" id="modalEditarVenda">
+  <div class="modal">
+    <h2>Editar venda</h2>
+    <div class="campo"><label>Descrição</label><input type="text" id="evDescricao"></div>
+    <div class="linha2">
+      <div class="campo"><label>Valor total (R$)</label><input type="number" step="0.01" id="evValor"></div>
+      <div class="campo"><label>Data</label><input type="date" id="evData"></div>
+    </div>
+    <div class="erro" id="erroEditarVenda" style="color:var(--red); font-size:13px; margin-bottom:8px;"></div>
+    <button class="btn btn-primario" id="btnSalvarEdicaoVenda">Salvar alterações</button>
+    <button class="btn btn-secundario" id="btnFecharEdicaoVenda">Cancelar</button>
+  </div>
+</div>
+
 <!-- MODAL: EXTRATO -->
 <div class="modal-fundo" id="modalExtrato">
   <div class="modal">
@@ -495,6 +522,9 @@ function mostrarTela(id){
   document.querySelectorAll('nav.tabs button').forEach(function(b){ b.classList.remove('ativa'); });
   var btn = document.querySelector('nav.tabs button[data-tela="'+id+'"]');
   if(btn) btn.classList.add('ativa');
+  // sempre busca dados atualizados ao trocar de aba, evitando telas desatualizadas
+  if(id === 'telaCobrancas'){ renderizarCobrancas(); }
+  if(id === 'telaInicio' || id === 'telaClientes'){ carregarTudo(); }
 }
 
 // ---------------- RENDER: INÍCIO ----------------
@@ -554,13 +584,13 @@ function abrirDetalheCliente(id){
     alertaLimite.style.display = 'none';
   }
 
-  var vendas = DADOS.vendas.filter(function(v){ return String(v.ClienteID)===String(c.ID); })
+  var vendas = DADOS.vendas.filter(function(v){ return String(v.ClienteID)===String(c.ID) && v.SaldoDevedor > 0.009; })
     .sort(function(a,b){ return new Date(b.Data)-new Date(a.Data); });
 
   var cont = document.getElementById('detCliVendas');
   cont.innerHTML = '';
   if(!vendas.length){
-    cont.innerHTML = '<div class="vazio">Nenhuma venda registrada.</div>';
+    cont.innerHTML = '<div class="vazio">Nenhuma compra em aberto.</div>';
   }
   vendas.forEach(function(v){
     var item = document.createElement('div');
@@ -568,6 +598,19 @@ function abrirDetalheCliente(id){
     item.innerHTML =
       '<div class="topo"><span>'+escapeHtml(v.Descricao || 'Compra')+'</span><span class="num">'+moeda(v.ValorTotal)+'</span></div>'+
       '<div class="sub">'+dataBR(v.Data)+' · saldo <b class="num">'+moeda(v.SaldoDevedor)+'</b> · '+v.Status+'</div>';
+    var acoesVenda = document.createElement('div');
+    acoesVenda.className = 'acoes';
+    var btnEditarV = document.createElement('button');
+    btnEditarV.className = 'btn btn-outline btn-sm';
+    btnEditarV.textContent = 'Editar';
+    btnEditarV.onclick = function(){ abrirEdicaoVenda(v); };
+    var btnExcluirV = document.createElement('button');
+    btnExcluirV.className = 'btn btn-red btn-sm';
+    btnExcluirV.textContent = 'Excluir';
+    btnExcluirV.onclick = function(){ excluirVendaConfirmar(v); };
+    acoesVenda.appendChild(btnEditarV);
+    acoesVenda.appendChild(btnExcluirV);
+    item.appendChild(acoesVenda);
     cont.appendChild(item);
   });
 
@@ -584,6 +627,48 @@ function abrirDetalheCliente(id){
   abrirModal('modalCliente');
 }
 document.getElementById('btnFecharCliente').onclick = function(){ fecharModal('modalCliente'); };
+
+// ---------------- EDITAR / EXCLUIR VENDA ----------------
+var vendaEmEdicao = null;
+
+function abrirEdicaoVenda(v){
+  vendaEmEdicao = v;
+  document.getElementById('evDescricao').value = v.Descricao || '';
+  document.getElementById('evValor').value = v.ValorTotal;
+  document.getElementById('evData').value = String(v.Data).slice(0,10);
+  document.getElementById('erroEditarVenda').textContent = '';
+  abrirModal('modalEditarVenda');
+}
+document.getElementById('btnFecharEdicaoVenda').onclick = function(){ fecharModal('modalEditarVenda'); };
+
+document.getElementById('btnSalvarEdicaoVenda').onclick = function(){
+  var erro = document.getElementById('erroEditarVenda');
+  var valor = parseFloat(document.getElementById('evValor').value);
+  if(!valor || valor <= 0){ erro.textContent = 'Informe um valor válido.'; return; }
+  erro.textContent = 'Salvando...';
+
+  chamarApi('editarVenda', { venda: {
+    id: vendaEmEdicao.ID,
+    descricao: document.getElementById('evDescricao').value.trim(),
+    valorTotal: valor,
+    data: document.getElementById('evData').value
+  }}).then(function(){
+    fecharModal('modalEditarVenda');
+    return carregarTudo();
+  }).then(function(){
+    abrirDetalheCliente(clienteModalAtual.ID);
+  }).catch(function(e){ erro.textContent = 'Erro: ' + e.message; });
+};
+
+function excluirVendaConfirmar(v){
+  var msg = 'Excluir esta venda (' + (v.Descricao || 'Compra') + ', ' + moeda(v.ValorTotal) + ')? Só é possível se ela não tiver pagamento registrado.';
+  if(!confirm(msg)) return;
+  chamarApi('excluirVenda', { id: v.ID }).then(function(){
+    return carregarTudo();
+  }).then(function(){
+    abrirDetalheCliente(clienteModalAtual.ID);
+  }).catch(function(e){ alert(e.message); });
+}
 
 // ---------------- VENDA RÁPIDA (dentro do perfil do cliente) ----------------
 function lancarVendaRapida(){
@@ -813,8 +898,11 @@ function renderizarCobrancas(){
     lista.forEach(function(c){
       var card = document.createElement('div');
       card.className = 'cartao';
+      var tagMotivo = c.motivo === 'limite'
+        ? '<span class="pill limite" style="margin-left:6px;">Limite excedido</span>'
+        : '<span class="pill" style="margin-left:6px; background:var(--bg); color:var(--ink-soft);">Ciclo</span>';
       card.innerHTML =
-        '<h3>'+escapeHtml(c.Nome)+' · <span class="num">'+moeda(c.SaldoDevedor)+'</span></h3>'+
+        '<h3>'+escapeHtml(c.Nome)+' · <span class="num">'+moeda(c.SaldoDevedor)+'</span>'+tagMotivo+'</h3>'+
         '<p style="font-size:13px; color:var(--ink-soft); white-space:pre-line;">'+escapeHtml(c.mensagem)+'</p>';
       var acoes = document.createElement('div');
       acoes.style.display = 'flex';
@@ -918,6 +1006,31 @@ document.getElementById('btnSalvarConexao').onclick = function(){
   CFG = { url: document.getElementById('cfgUrl').value.trim(), token: document.getElementById('cfgToken').value.trim() };
   localStorage.setItem('fiado_cfg', JSON.stringify(CFG));
   iniciar();
+};
+
+// ---------------- MANUTENÇÃO ----------------
+document.getElementById('btnVerificarHistorico').onclick = function(){
+  var data = document.getElementById('mntData').value;
+  var msg = document.getElementById('mntMsg');
+  if(!data){ msg.style.color = 'var(--red)'; msg.textContent = 'Escolha uma data.'; return; }
+  msg.style.color = 'var(--ink-soft)'; msg.textContent = 'Verificando...';
+  chamarApi('contarHistoricoAntigo', { dataCorte: data }).then(function(res){
+    msg.style.color = 'var(--ink-soft)';
+    msg.textContent = res.total + ' venda(s) quitada(s) até essa data serão excluídas, com os pagamentos vinculados.';
+  }).catch(function(e){ msg.style.color = 'var(--red)'; msg.textContent = 'Erro: ' + e.message; });
+};
+
+document.getElementById('btnExcluirHistorico').onclick = function(){
+  var data = document.getElementById('mntData').value;
+  var msg = document.getElementById('mntMsg');
+  if(!data){ msg.style.color = 'var(--red)'; msg.textContent = 'Escolha uma data.'; return; }
+  if(!confirm('Tem certeza? Isso apaga definitivamente o histórico de vendas quitadas até ' + data + ' e não pode ser desfeito.')) return;
+  msg.style.color = 'var(--ink-soft)'; msg.textContent = 'Excluindo...';
+  chamarApi('limparHistorico', { dataCorte: data }).then(function(res){
+    msg.style.color = 'var(--green)';
+    msg.textContent = res.excluidas + ' venda(s) excluída(s) com sucesso.';
+    return carregarTudo();
+  }).catch(function(e){ msg.style.color = 'var(--red)'; msg.textContent = 'Erro: ' + e.message; });
 };
 
 // ---------------- INÍCIO ----------------
