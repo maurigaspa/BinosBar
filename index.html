@@ -159,6 +159,7 @@
   .modal-fundo.aberto{display:flex;}
   #modalCadastroCliente{ z-index:33; }
   #modalExtratoCompleto{ z-index:33; }
+  #modalCobrancaManual{ z-index:33; }
   .modal{
     background:var(--bg); width:100%; max-width:520px; border-radius:16px 16px 0 0;
     padding:22px; max-height:88vh; overflow-y:auto; position:relative;
@@ -325,6 +326,7 @@
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+      <button class="btn btn-gold btn-sm" id="btnCobrarAgora">Cobrar agora</button>
       <button class="btn btn-outline btn-sm" id="btnEditarCliente">Editar cadastro</button>
       <button class="btn btn-outline btn-sm" id="btnExtratoCliente">Gerar extrato</button>
       <button class="btn btn-red btn-sm" id="btnExcluirCliente">Excluir</button>
@@ -432,6 +434,19 @@
   </div>
 </div>
 
+<!-- MODAL: COBRANÇA MANUAL (direto do perfil do cliente) -->
+<div class="modal-fundo" id="modalCobrancaManual">
+  <div class="modal">
+    <h2>Cobrar agora</h2>
+    <div class="campo">
+      <label>Prévia da mensagem</label>
+      <textarea id="cmPreview" readonly style="min-height:160px;"></textarea>
+    </div>
+    <button class="btn btn-green btn-block" id="btnEnviarCobrancaManual">Enviar por WhatsApp</button>
+    <button class="btn btn-secundario" id="btnFecharCobrancaManual">Fechar</button>
+  </div>
+</div>
+
 <!-- MODAL: EXTRATO -->
 <div class="modal-fundo" id="modalExtrato">
   <div class="modal">
@@ -494,7 +509,14 @@ var clienteAtualPostergar = null;
 var clienteAtualExtrato = null;
 var extratoAtalhoAtual = 'mesAtual';
 
-function hoje(){ return new Date().toISOString().slice(0,10); }
+function hoje(){
+  // usa a data local do aparelho (não UTC), pra não cair pro dia seguinte à noite
+  var d = new Date();
+  var ano = d.getFullYear();
+  var mes = String(d.getMonth()+1).padStart(2,'0');
+  var dia = String(d.getDate()).padStart(2,'0');
+  return ano+'-'+mes+'-'+dia;
+}
 function round2(n){ return Math.round(n*100)/100; }
 function moeda(n){ return 'R$ ' + Number(n||0).toFixed(2).replace('.', ','); }
 function dataBR(iso){ var p = String(iso).slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
@@ -602,9 +624,14 @@ function mostrarTela(id){
 // ---------------- RENDER: INÍCIO ----------------
 function renderizarInicio(){
   var lista = DADOS.clientes.slice().sort(function(a,b){ return b.SaldoDevedor - a.SaldoDevedor; });
-  var totalDevendo = lista.reduce(function(s,c){ return s + c.SaldoDevedor; }, 0);
+  // "A receber" soma só quem deve (crédito de um cliente não abate o que outro deve)
+  var totalDevendo = lista.reduce(function(s,c){ return s + Math.max(0, c.SaldoDevedor); }, 0);
   var mesAtual = hoje().slice(0,7);
-  var totalRecebido = DADOS.pagamentos.filter(function(p){ return String(p.Data).slice(0,7) === mesAtual; })
+  var totalRecebido = DADOS.pagamentos.filter(function(p){
+      // pagamento que só está "reaplicando" um crédito antigo numa venda nova não é dinheiro novo entrando
+      var ehAplicacaoDeCredito = p.Modo === 'credito' && String(p.VendaID).indexOf('CREDITO-') !== 0;
+      return !ehAplicacaoDeCredito && String(p.Data).slice(0,7) === mesAtual;
+    })
     .reduce(function(s,p){ return s + Number(p.Valor); }, 0);
 
   document.getElementById('totalDevendo').textContent = moeda(totalDevendo);
@@ -619,12 +646,21 @@ function renderizarInicio(){
 function criarLinhaCliente(c){
   var el = document.createElement('div');
   el.className = 'linha-cliente';
-  var pillClasse = c.SaldoDevedor > 0.009 ? 'deve' : 'ok';
-  if(Number(c.LimiteCredito) > 0 && c.SaldoDevedor > Number(c.LimiteCredito)) pillClasse = 'limite';
+  var pillClasse, textoSaldo;
+  if(c.SaldoDevedor > 0.009){
+    pillClasse = (Number(c.LimiteCredito) > 0 && c.SaldoDevedor > Number(c.LimiteCredito)) ? 'limite' : 'deve';
+    textoSaldo = moeda(c.SaldoDevedor);
+  } else if(c.SaldoDevedor < -0.009){
+    pillClasse = 'ok';
+    textoSaldo = moeda(Math.abs(c.SaldoDevedor)) + ' em crédito';
+  } else {
+    pillClasse = 'ok';
+    textoSaldo = moeda(0);
+  }
   el.innerHTML =
     '<div class="info"><div class="nome">'+escapeHtml(c.Nome)+'</div>'+
     (c.Telefone ? '<div class="tel">'+escapeHtml(c.Telefone)+'</div>' : '')+'</div>'+
-    '<span class="pill '+pillClasse+' num">'+moeda(c.SaldoDevedor)+'</span>';
+    '<span class="pill '+pillClasse+' num">'+textoSaldo+'</span>';
   el.onclick = function(){ abrirDetalheCliente(c.ID); };
   return el;
 }
@@ -656,6 +692,10 @@ function abrirDetalheCliente(id){
     alertaLimite.className = 'alerta erro';
     alertaLimite.style.display = 'block';
     alertaLimite.textContent = 'Saldo (' + moeda(c.SaldoDevedor) + ') ultrapassa o limite de ' + moeda(c.LimiteCredito) + '.';
+  } else if(c.SaldoDevedor < -0.009){
+    alertaLimite.className = 'alerta ok';
+    alertaLimite.style.display = 'block';
+    alertaLimite.textContent = 'Cliente tem ' + moeda(Math.abs(c.SaldoDevedor)) + ' em crédito — será usado automaticamente na próxima compra.';
   } else {
     alertaLimite.style.display = 'none';
   }
@@ -763,9 +803,11 @@ function lancarVendaRapida(){
   chamarApi('novaVenda', { venda: { clienteId: clienteId, descricao: desc, valorTotal: valor, data: dataVenda } })
     .then(function(res){
       // atualização otimista: mostra na hora, sem esperar buscar tudo de novo do servidor
-      DADOS.vendas.push({ ID: res.id, ClienteID: clienteId, Data: dataVenda, Descricao: desc, ValorTotal: valor, ValorPago: 0, SaldoDevedor: valor, Status: 'Aberto' });
+      var creditoUsado = res.creditoAplicado || 0;
+      var saldoNovaVenda = round2(valor - creditoUsado);
+      DADOS.vendas.push({ ID: res.id, ClienteID: clienteId, Data: dataVenda, Descricao: desc, ValorTotal: valor, ValorPago: creditoUsado, SaldoDevedor: saldoNovaVenda, Status: saldoNovaVenda <= 0.009 ? 'Pago' : 'Aberto' });
       var cli = DADOS.clientes.filter(function(c){ return String(c.ID)===String(clienteId); })[0];
-      if(cli) cli.SaldoDevedor = round2(cli.SaldoDevedor + valor);
+      if(cli) cli.SaldoDevedor = round2(cli.SaldoDevedor + valor - creditoUsado);
 
       document.getElementById('qvDescricao').value = '';
       document.getElementById('qvValor').value = '';
@@ -798,6 +840,32 @@ document.getElementById('btnEditarCliente').onclick = function(){
   if(!clienteModalAtual) return;
   abrirCadastroCliente(clienteModalAtual);
 };
+
+// ---------------- COBRAR AGORA (direto do perfil do cliente) ----------------
+var cobrancaManualLinkAtual = '';
+document.getElementById('btnCobrarAgora').onclick = function(){
+  var c = clienteModalAtual;
+  if(!c) return;
+  var preview = document.getElementById('cmPreview');
+  preview.value = 'Gerando...';
+  cobrancaManualLinkAtual = '';
+  abrirModal('modalCobrancaManual');
+  chamarApi('gerarCobranca', { clienteId: c.ID }).then(function(res){
+    preview.value = res.mensagem;
+    cobrancaManualLinkAtual = res.linkWhatsapp;
+  }).catch(function(e){
+    preview.value = '';
+    fecharModal('modalCobrancaManual');
+    alert(e.message);
+  });
+};
+document.getElementById('btnEnviarCobrancaManual').onclick = function(){
+  if(!cobrancaManualLinkAtual) return;
+  window.open(cobrancaManualLinkAtual, '_blank');
+  chamarApi('marcarEnviado', { clienteId: clienteModalAtual.ID }).then(sincronizarEmSegundoPlano);
+  fecharModal('modalCobrancaManual');
+};
+document.getElementById('btnFecharCobrancaManual').onclick = function(){ fecharModal('modalCobrancaManual'); };
 
 // ---------------- CADASTRO / EDIÇÃO DE CLIENTE ----------------
 function abrirCadastroCliente(clienteExistente){
@@ -924,9 +992,11 @@ document.getElementById('btnSalvarVenda').onclick = function(){
 
   chamarApi('novaVenda', { venda: { clienteId: clienteId, descricao: descricao, valorTotal: valor, data: dataVenda } })
     .then(function(res){
-      DADOS.vendas.push({ ID: res.id, ClienteID: clienteId, Data: dataVenda, Descricao: descricao, ValorTotal: valor, ValorPago: 0, SaldoDevedor: valor, Status: 'Aberto' });
+      var creditoUsado = res.creditoAplicado || 0;
+      var saldoNovaVenda = round2(valor - creditoUsado);
+      DADOS.vendas.push({ ID: res.id, ClienteID: clienteId, Data: dataVenda, Descricao: descricao, ValorTotal: valor, ValorPago: creditoUsado, SaldoDevedor: saldoNovaVenda, Status: saldoNovaVenda <= 0.009 ? 'Pago' : 'Aberto' });
       var cli = DADOS.clientes.filter(function(c){ return String(c.ID)===String(clienteId); })[0];
-      if(cli) cli.SaldoDevedor = round2(cli.SaldoDevedor + valor);
+      if(cli) cli.SaldoDevedor = round2(cli.SaldoDevedor + valor - creditoUsado);
       fecharModal('modalVenda');
       renderizarInicio();
       renderizarClientes();
